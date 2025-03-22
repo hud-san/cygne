@@ -1,0 +1,79 @@
+import sys
+import socket
+import json
+import time
+import random
+from datetime import datetime
+
+def scan_port(target, port, timeout=1.0):
+    """Scan a single port"""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    
+    try:
+        result = sock.connect_ex((target, port))
+        sock.close()
+        return result == 0
+    except:
+        sock.close()
+        return False
+
+def scan_ports(target, start_port, end_port, output_file):
+    """Scan a range of ports and save results to file"""
+    start_time = datetime.now()
+    
+    # Get instance's outbound IP for reporting
+    my_ip = get_my_ip()
+    
+    print(f"Starting scan from IP {my_ip}")
+    print(f"Target: {target}, Ports: {start_port}-{end_port}")
+    
+    results = {
+        "scanner_ip": my_ip,
+        "target": target,
+        "scan_start": start_time.isoformat(),
+        "open_ports": []
+    }
+    
+    # Scan each port with ballet-like timing
+    for port in range(start_port, end_port + 1):
+        # Add graceful, random timing
+        time.sleep(random.uniform(0.05, 0.2))
+        
+        if scan_port(target, port):
+            print(f"Port {port} is open")
+            results["open_ports"].append(port)
+    
+    # Add scan completion time
+    results["scan_end"] = datetime.now().isoformat()
+    results["open_port_count"] = len(results["open_ports"])
+    
+    # Save results to file
+    with open(output_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    print(f"Scan complete. Found {len(results['open_ports'])} open ports.")
+    print(f"Results saved to {output_file}")
+
+def get_my_ip():
+    """Get the instance's outbound IP address"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "unknown"
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: python scan.py <target> <start_port> <end_port> [output_file]")
+        sys.exit(1)
+    
+    target = sys.argv[1]
+    start_port = int(sys.argv[2])
+    end_port = int(sys.argv[3])
+    output_file = sys.argv[4] if len(sys.argv) > 4 else "scan_results.json"
+    
+    scan_ports(target, start_port, end_port, output_file)
