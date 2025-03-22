@@ -18,15 +18,31 @@ def scan_port(target, port, timeout=1.0):
         sock.close()
         return False
 
-def scan_ports(target, start_port, end_port, output_file):
-    """Scan a range of ports and save results to file"""
+def parse_port_ranges(port_range_str):
+    """
+    Parse a port range string like "1-100,200-300,443" into a list of ports
+    """
+    ports = []
+    ranges = port_range_str.split(',')
+    
+    for r in ranges:
+        if '-' in r:
+            start, end = map(int, r.split('-'))
+            ports.extend(range(start, end + 1))
+        else:
+            ports.append(int(r))
+    
+    return ports
+
+def scan_ports(target, ports, output_file):
+    """Scan specified ports and save results to file"""
     start_time = datetime.now()
     
     # Get instance's outbound IP for reporting
     my_ip = get_my_ip()
     
     print(f"Starting scan from IP {my_ip}")
-    print(f"Target: {target}, Ports: {start_port}-{end_port}")
+    print(f"Target: {target}, Ports: {len(ports)} ports to scan")
     
     results = {
         "scanner_ip": my_ip,
@@ -36,7 +52,7 @@ def scan_ports(target, start_port, end_port, output_file):
     }
     
     # Scan each port with ballet-like timing
-    for port in range(start_port, end_port + 1):
+    for port in ports:
         # Add graceful, random timing
         time.sleep(random.uniform(0.05, 0.2))
         
@@ -67,13 +83,21 @@ def get_my_ip():
         return "unknown"
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: python scan.py <target> <start_port> <end_port> [output_file]")
+    if len(sys.argv) < 3:
+        print("Usage: python scan.py <target> <port_ranges> [output_file]")
+        print("  port_ranges: Format is '1-100,200-300,443'")
         sys.exit(1)
     
     target = sys.argv[1]
-    start_port = int(sys.argv[2])
-    end_port = int(sys.argv[3])
-    output_file = sys.argv[4] if len(sys.argv) > 4 else "scan_results.json"
+    port_ranges = sys.argv[2]
+    output_file = sys.argv[3] if len(sys.argv) > 3 else "scan_results.json"
     
-    scan_ports(target, start_port, end_port, output_file)
+    # Parse the port ranges
+    ports_to_scan = parse_port_ranges(port_ranges)
+    
+    if not ports_to_scan:
+        print("Error: No valid ports specified")
+        sys.exit(1)
+        
+    print(f"Preparing to scan {len(ports_to_scan)} ports")
+    scan_ports(target, ports_to_scan, output_file)
